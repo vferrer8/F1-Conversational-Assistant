@@ -1,23 +1,25 @@
-# F1-GPT — Asistente conversacional para análisis y predicción en Fórmula 1
+# F1-GPT: A Conversational Assistant for Formula 1 Analysis and Prediction
 
-Trabajo de Fin de Máster · Máster Universitario en Inteligencia Artificial · UTAMED  
-Autor: **Víctor Ferrer Teixidor** · Director: **Alfons Marquès**
+Master's thesis (TFM) · MSc in Artificial Intelligence · UTAMED
+Author: **Víctor Ferrer Teixidor** · Supervisor: **Alfons Marquès**
 
 ---
 
-F1-GPT es un asistente conversacional especializado en Fórmula 1 que combina razonamiento basado en LLM con datos históricos estructurados, telemetría en tiempo real y predicción de posición de carrera mediante aprendizaje automático.
+F1-GPT is a conversational assistant specialised in Formula 1. It combines LLM reasoning with structured historical data, recent telemetry and a machine-learning model that predicts race finishing positions.
 
-El sistema responde tanto en español como en inglés, adapta el tipo de respuesta según si la consulta es descriptiva, predictiva o mixta, y rechaza cualquier pregunta fuera del dominio de la F1.
+The assistant answers in both Spanish and English. It adapts its answer to whether the question is descriptive, predictive or mixed, and it refuses any question outside the F1 domain.
 
-## Arquitectura general
+> **Repository status.** This repository currently contains the entry point, configuration, training and evaluation scripts. The `src/`, `data/`, `models/` and `evaluation/` folders described below are not published yet, so the app cannot be run from this repository as it stands.
 
-El agente orquesta cuatro capas:
+## Architecture
+
+The agent orchestrates four layers:
 
 ```
 ┌──────────────┐      ┌──────────────────────────────────────────┐
 │  Streamlit   │◀────▶│              F1Agent                     │
 │ (frontend)   │      │  ┌────────────┐                          │
-└──────────────┘      │  │DomainGuard │  ← filtro de dominio     │
+└──────────────┘      │  │DomainGuard │  ← domain filter         │
                       │  └─────┬──────┘                          │
                       │        ▼                                  │
                       │  ┌────────────┐    ┌──────────────────┐  │
@@ -37,101 +39,113 @@ El agente orquesta cuatro capas:
                       └──────────────────────────────────────────┘
 ```
 
-**Capa semántica** — El system prompt embebe el mapeo de entidades (pilotos, circuitos, constructores) y las reglas de selección de herramientas. El LLM nunca genera SQL ni llama a la API directamente; delega en las tools.
+**Semantic layer.** The system prompt embeds the entity mappings (drivers, circuits, constructors) and the tool-selection rules. The LLM never writes SQL or calls the API directly. It always delegates to the tools.
 
-**Tool calling** — El SDK de Gemini gestiona el ciclo completo de invocación. Hay cuatro herramientas disponibles:
+**Tool calling.** The Gemini SDK manages the full invocation cycle. Four tools are available:
 
-| Herramienta | Fuente de datos | Uso |
+| Tool | Data source | Purpose |
 |---|---|---|
-| `get_driver_standings` | SQLite (Ergast 1950–2024) | Ficha y datos básicos de un piloto |
-| `get_race_results` | SQLite (Ergast 1950–2024) | Resultados oficiales de un GP |
-| `get_telemetry` | OpenF1 API (2023+) | Tiempos de vuelta y telemetría reciente |
-| `predict_position` | Modelo XGBoost | Estimación de posición final de carrera |
+| `get_driver_standings` | SQLite (Ergast 1950–2024) | Driver profile and basic data |
+| `get_race_results` | SQLite (Ergast 1950–2024) | Official results of a Grand Prix |
+| `get_telemetry` | OpenF1 API (2023+) | Lap times and recent telemetry |
+| `predict_position` | XGBoost model | Estimated final race position |
 
-**Guardarraíles** — Tres filtros encadenados con interfaz uniforme `{"valid": bool, "message": str}`:
+**Guardrails.** Three chained filters share the same interface, `{"valid": bool, "message": str}`:
 
-| Guardarraíl | Momento | Función |
+| Guardrail | When | What it does |
 |---|---|---|
-| `DomainGuard` | Pre-inferencia | Filtra consultas fuera del dominio F1 mediante allowlist léxica bilingüe (ES/EN) |
-| `ToolValidator` | Pre-ejecución | Verifica que cada tool invocada está en la allowlist; bloquea inyección de prompt |
-| `ConsistencyGuard` | Post-generación | Detecta números en la respuesta que no aparecen en los datos devueltos por las tools |
+| `DomainGuard` | Before inference | Filters out non-F1 questions with a bilingual (ES/EN) lexical allowlist |
+| `ToolValidator` | Before execution | Checks that every invoked tool is on the allowlist and blocks prompt injection |
+| `ConsistencyGuard` | After generation | Flags numbers in the answer that do not appear in the data returned by the tools |
 
-## Modelo predictivo
+## Predictive model
 
-El módulo de predicción emplea un modelo **XGBoost** entrenado sobre el histórico de Ergast (1950–2024). Predice la posición final de un piloto a partir de diez variables pre-carrera:
+The prediction module uses an **XGBoost** model trained on the Ergast history (1950–2024, about 25,000 rows). Hyperparameters were tuned with `RandomizedSearchCV` (60 iterations × 5 folds). The model predicts a driver's finishing position from ten pre-race features:
 
-| Feature | Descripción |
+| Feature | Description |
 |---|---|
-| `grid` | Posición de salida |
-| `year` | Temporada |
-| `season_progress` | Ronda actual / total de rondas |
-| `circuit_alt` | Altitud del circuito (m) |
-| `driver_age` | Edad del piloto en el momento de la carrera |
-| `driver_experience` | Número de GPs disputados hasta esa carrera |
-| `avg_finish_last3` | Media de posiciones finales en las últimas 3 carreras |
-| `driver_pos_before` | Posición en el campeonato antes de la carrera |
-| `driver_wins_before` | Victorias acumuladas en la temporada |
-| `constructor_pos_before` | Posición del constructor antes de la carrera |
+| `grid` | Starting position |
+| `year` | Season |
+| `season_progress` | Current round / total rounds |
+| `circuit_alt` | Circuit altitude (m) |
+| `driver_age` | Driver's age on race day |
+| `driver_experience` | Grands Prix started up to that race |
+| `avg_finish_last3` | Average finishing position over the last 3 races |
+| `driver_pos_before` | Championship position before the race |
+| `driver_wins_before` | Wins so far in the season |
+| `constructor_pos_before` | Constructor's championship position before the race |
 
-Las variables que no pueden obtenerse directamente de la base de datos (carreras futuras o pilotos sin histórico) se imputan con la mediana del dataset. El resultado se recorta al intervalo [1, 25] y se acompaña siempre de un aviso de limitación del modelo.
+Features that cannot be read from the database (future races, or drivers with no history) are imputed with the dataset median. The output is clipped to the range [1, 25] and always comes with a note on the model's limitations.
 
-## Evaluación
+## Evaluation
 
-El banco de pruebas (`evaluation/benchmark.json`) contiene 20 consultas de referencia distribuidas en cuatro categorías:
+The benchmark (`evaluation/benchmark.json`) holds 20 reference questions in four categories:
 
-- **descriptive** — consultas sobre resultados históricos y fichas de piloto
-- **predictive** — estimaciones de posición futura
-- **comparative** — cruces entre temporadas o pilotos
-- **out_of_domain** — consultas ajenas a la F1, que deben ser rechazadas
+- **descriptive**: historical results and driver profiles
+- **predictive**: estimates of future positions
+- **comparative**: comparisons across seasons or drivers
+- **out_of_domain**: non-F1 questions, which must be refused
 
-El script `evaluate.py` mide task completion rate (global y por categoría), latencia extremo a extremo (media, p50, p90) y coste estimado por consulta.
+`evaluate.py` measures the task completion rate (overall and per category), end-to-end latency (mean, p50, p90) and the estimated cost per query.
 
-## Estructura del repositorio
+## Project structure
 
 ```
-Project/
-├── streamlit_app.py        # Frontend conversacional (entrypoint principal)
-├── config.py               # Variables de entorno y rutas de modelos y BD
-├── requirements.txt        # Dependencias fijadas
-├── train_xgboost_tfm.py    # Entrenamiento del modelo XGBoost
-├── evaluate.py             # Evaluación automática del agente
+├── streamlit_app.py        # Conversational frontend (main entry point)
+├── config.py               # Environment variables, model and database paths
+├── requirements.txt        # Dependencies
+├── train_xgboost_tfm.py    # XGBoost training script
+├── evaluate.py             # Automatic agent evaluation
 ├── evaluation/
-│   └── benchmark.json      # 20 consultas de referencia con respuesta esperada
+│   └── benchmark.json      # 20 reference questions with expected answers
 ├── data/
-│   ├── f1_dataset_v2.csv   # Dataset preprocesado para entrenamiento
-│   ├── f1_assistant.db     # Base de datos SQLite (dump Ergast)
-│   ├── F1_XGBoost_TFM.ipynb         # Notebook de desarrollo del modelo
-│   └── F1_Comparativa_Modelos.ipynb # Notebook comparativa LR / RF / XGBoost
+│   ├── f1_dataset_v2.csv            # Preprocessed training dataset
+│   ├── f1_assistant.db              # SQLite database (Ergast dump)
+│   ├── F1_XGBoost_TFM.ipynb         # Model development notebook
+│   └── F1_Comparativa_Modelos.ipynb # LR / RF / XGBoost comparison notebook
 ├── models/
-│   └── race_pos_model.pkl  # Modelo XGBoost serializado con sus encoders
+│   └── race_pos_model.pkl  # Serialised XGBoost model with its encoders
 └── src/
     ├── agent/
-    │   └── f1_agent.py           # Orquestador: LLM + tool calling + guardarraíles
+    │   └── f1_agent.py           # Orchestrator: LLM + tool calling + guardrails
     ├── api/
-    │   ├── db_client.py          # Cliente SQLite (datos históricos Ergast)
-    │   └── f1_client.py          # Cliente OpenF1 (telemetría 2023+)
+    │   ├── db_client.py          # SQLite client (Ergast historical data)
+    │   └── f1_client.py          # OpenF1 client (telemetry 2023+)
     ├── guards/
-    │   ├── domain_guard.py       # Filtro léxico de dominio (ES/EN)
-    │   ├── consistency_guard.py  # Verificación numérica post-generación
-    │   └── tool_validator.py     # Allowlist de herramientas permitidas
+    │   ├── domain_guard.py       # Lexical domain filter (ES/EN)
+    │   ├── consistency_guard.py  # Post-generation numeric check
+    │   └── tool_validator.py     # Tool allowlist
     ├── ml/
-    │   ├── predictor.py          # Wrapper de inferencia del modelo XGBoost
-    │   └── feature_resolver.py   # Resolución de las 10 features desde SQLite
+    │   ├── predictor.py          # XGBoost inference wrapper
+    │   └── feature_resolver.py   # Resolves the 10 features from SQLite
     └── tools/
-        └── f1_tools.py           # Funciones expuestas al LLM via tool calling
+        └── f1_tools.py           # Functions exposed to the LLM through tool calling
 ```
 
-## Fuentes de datos
+## Getting started
 
-- **Ergast Motor Racing Data** — dump histórico de resultados 1950–2024, almacenado en SQLite local (`data/f1_assistant.db`).
-- **OpenF1 API** — telemetría y tiempos de vuelta de sesiones a partir de 2023. Se consulta en tiempo real únicamente cuando el usuario solicita datos de telemetría reciente.
+```bash
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+echo "GEMINI_API_KEY=your-key" > .env
 
-## Limitaciones conocidas
+python train_xgboost_tfm.py      # trains and saves models/race_pos_model.pkl
+streamlit run streamlit_app.py   # launches the assistant
+python evaluate.py --limit 5     # runs part of the benchmark
+```
 
-- La capa semántica está embebida en el system prompt. Pilotos o circuitos no contemplados en los mapas de entidades pueden producir errores de resolución.
-- El SDK de Gemini gestiona el ciclo de tool calling de forma autónoma, por lo que el `ConsistencyGuard` opera en modo *best-effort* sobre la respuesta final: los datos intermedios de las herramientas no quedan expuestos durante la generación.
-- El cliente OpenF1 expone únicamente `get_laps`; otros endpoints (sectores, intervalos, condiciones meteorológicas) no están implementados.
+## Data sources
 
-## Licencia
+- **Ergast Motor Racing Data**: historical results dump for 1950–2024, stored in a local SQLite database (`data/f1_assistant.db`).
+- **OpenF1 API**: telemetry and lap times for sessions from 2023 onwards. It is queried live only when the user asks for recent telemetry.
 
-Uso académico, sin fines comerciales. Datos históricos cortesía de los dumps públicos de Ergast y la API OpenF1.
+## Known limitations
+
+- The semantic layer lives in the system prompt. Drivers or circuits missing from the entity maps can cause resolution errors.
+- The Gemini SDK runs the tool-calling loop on its own, so `ConsistencyGuard` works on a best-effort basis on the final answer: intermediate tool outputs are not exposed during generation.
+- The OpenF1 client only implements `get_laps`. Other endpoints (sectors, intervals, weather) are not implemented.
+
+## License
+
+Academic use only, non-commercial. Historical data courtesy of the public Ergast dumps and the OpenF1 API.
