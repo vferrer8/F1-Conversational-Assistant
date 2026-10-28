@@ -1,0 +1,211 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "description": "Banco de pruebas de referencia para el agente F1-GPT. Cada consulta declara la herramienta esperada, parámetros mínimos y un fragmento de respuesta verificable. El campo 'category' clasifica la consulta en descriptiva, predictiva, comparativa o fuera de dominio (control negativo).",
+    "n_queries": 20,
+    "categories": {
+      "descriptive": 10,
+      "predictive": 4,
+      "comparative": 4,
+      "out_of_domain": 2
+    }
+  },
+  "queries": [
+    {
+      "id": "D01",
+      "category": "descriptive",
+      "language": "es",
+      "query": "¿Quién ganó el GP de Monza en 2019?",
+      "expected_tool": "get_race_results",
+      "expected_params": {"year": 2019, "circuit_contains": "Monza"},
+      "expected_keywords": ["Leclerc", "Ferrari", "Italian Grand Prix"]
+    },
+    {
+      "id": "D02",
+      "category": "descriptive",
+      "language": "en",
+      "query": "Who won the 2021 Abu Dhabi Grand Prix?",
+      "expected_tool": "get_race_results",
+      "expected_params": {"year": 2021, "circuit_contains": "Yas Marina"},
+      "expected_keywords": ["Verstappen", "Red Bull"]
+    },
+    {
+      "id": "D03",
+      "category": "descriptive",
+      "language": "es",
+      "query": "¿Cuál es la nacionalidad de Fernando Alonso?",
+      "expected_tool": "get_driver_standings",
+      "expected_params": {"driver_name": "Alonso"},
+      "expected_keywords": ["Spanish", "español", "Spain", "España"]
+    },
+    {
+      "id": "D04",
+      "category": "descriptive",
+      "language": "en",
+      "query": "Tell me about driver number 44.",
+      "expected_tool": "get_driver_standings",
+      "expected_params": {"driver_number": 44},
+      "expected_keywords": ["Hamilton", "Lewis"]
+    },
+    {
+      "id": "D05",
+      "category": "descriptive",
+      "language": "es",
+      "query": "Resultados del Gran Premio de Bélgica de 2018.",
+      "expected_tool": "get_race_results",
+      "expected_params": {"year": 2018, "circuit_contains": "Spa"},
+      "expected_keywords": ["Vettel", "Ferrari", "Belgian Grand Prix"]
+    },
+    {
+      "id": "D06",
+      "category": "descriptive",
+      "language": "en",
+      "query": "Show me the 1994 Monaco Grand Prix results.",
+      "expected_tool": "get_race_results",
+      "expected_params": {"year": 1994, "circuit_contains": "Monaco"},
+      "expected_keywords": ["Schumacher", "Brundle"]
+    },
+    {
+      "id": "D07",
+      "category": "descriptive",
+      "language": "es",
+      "query": "¿Quién ganó en Silverstone en 2020?",
+      "expected_tool": "get_race_results",
+      "expected_params": {"year": 2020, "circuit_contains": "Silverstone"},
+      "expected_keywords": ["Hamilton", "Mercedes"]
+    },
+    {
+      "id": "D08",
+      "category": "descriptive",
+      "language": "en",
+      "query": "Who won the Hungarian Grand Prix in 2003?",
+      "expected_tool": "get_race_results",
+      "expected_params": {"year": 2003, "circuit_contains": "Hungaroring"},
+      "expected_keywords": ["Alonso"]
+    },
+    {
+      "id": "D09",
+      "category": "descriptive",
+      "language": "es",
+      "query": "Dame los puntos del campeonato de constructores de 2016.",
+      "expected_tool": "get_race_results",
+      "expected_params": {"year": 2016},
+      "expected_keywords": ["Mercedes", "Red Bull", "Ferrari"]
+    },
+    {
+      "id": "D10",
+      "category": "descriptive",
+      "language": "en",
+      "query": "Top 3 finishers at the 2008 Brazilian GP?",
+      "expected_tool": "get_race_results",
+      "expected_params": {"year": 2008, "circuit_contains": "Interlagos"},
+      "expected_keywords": ["Massa", "Alonso", "Räikkönen"]
+    },
+
+    {
+      "id": "P01",
+      "category": "predictive",
+      "language": "es",
+      "query": "Si Verstappen sale tercero en Mónaco con Red Bull, ¿en qué posición acabaría?",
+      "expected_tool": "predict_position",
+      "expected_params": {
+        "driver_number": 1,
+        "constructor": "Red Bull",
+        "circuit": "Circuit de Monaco",
+        "grid": 3
+      },
+      "expected_keywords": ["estimación", "estimate", "modelo"]
+    },
+    {
+      "id": "P02",
+      "category": "predictive",
+      "language": "en",
+      "query": "Predict Hamilton's finishing position at Silverstone starting from pole.",
+      "expected_tool": "predict_position",
+      "expected_params": {
+        "driver_number": 44,
+        "circuit": "Silverstone Circuit",
+        "grid": 1
+      },
+      "expected_keywords": ["estimate", "model"]
+    },
+    {
+      "id": "P03",
+      "category": "predictive",
+      "language": "es",
+      "query": "Estimación de posición final para Leclerc saliendo séptimo en Monza con Ferrari.",
+      "expected_tool": "predict_position",
+      "expected_params": {
+        "driver_number": 16,
+        "constructor": "Ferrari",
+        "circuit": "Autodromo Nazionale Monza",
+        "grid": 7
+      },
+      "expected_keywords": ["estimación", "Ferrari"]
+    },
+    {
+      "id": "P04",
+      "category": "predictive",
+      "language": "en",
+      "query": "If Norris starts P5 in Spa with McLaren, where does he finish?",
+      "expected_tool": "predict_position",
+      "expected_params": {
+        "driver_number": 4,
+        "constructor": "McLaren",
+        "circuit": "Circuit de Spa-Francorchamps",
+        "grid": 5
+      },
+      "expected_keywords": ["estimate", "McLaren"]
+    },
+
+    {
+      "id": "C01",
+      "category": "comparative",
+      "language": "es",
+      "query": "Verstappen ganó el GP de Italia en 2023. ¿Dónde acabaría si saliera octavo el año siguiente?",
+      "expected_tool_sequence": ["get_race_results", "predict_position"],
+      "expected_keywords": ["Verstappen", "Monza", "estimación"]
+    },
+    {
+      "id": "C02",
+      "category": "comparative",
+      "language": "en",
+      "query": "Compare Hamilton and Verstappen in Abu Dhabi 2021, then predict Hamilton from P2.",
+      "expected_tool_sequence": ["get_race_results", "predict_position"],
+      "expected_keywords": ["Verstappen", "Hamilton", "estimate"]
+    },
+    {
+      "id": "C03",
+      "category": "comparative",
+      "language": "es",
+      "query": "¿Cuántas veces ha ganado Hamilton en Silverstone? Y si saliera décimo, ¿dónde acabaría?",
+      "expected_tool_sequence": ["get_race_results", "predict_position"],
+      "expected_keywords": ["Hamilton", "Silverstone", "estimación"]
+    },
+    {
+      "id": "C04",
+      "category": "comparative",
+      "language": "en",
+      "query": "Tell me Leclerc's 2024 Monaco result and predict his finish if he starts from P3.",
+      "expected_tool_sequence": ["get_race_results", "predict_position"],
+      "expected_keywords": ["Leclerc", "Monaco", "estimate"]
+    },
+
+    {
+      "id": "O01",
+      "category": "out_of_domain",
+      "language": "es",
+      "query": "¿Cuál es la capital de Australia?",
+      "expected_tool": null,
+      "expected_keywords": ["solo responde", "Fórmula 1"]
+    },
+    {
+      "id": "O02",
+      "category": "out_of_domain",
+      "language": "en",
+      "query": "How do I bake sourdough bread?",
+      "expected_tool": null,
+      "expected_keywords": ["Formula 1", "only"]
+    }
+  ]
+}

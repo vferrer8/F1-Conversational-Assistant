@@ -9,8 +9,6 @@ F1-GPT is a conversational assistant specialised in Formula 1. It combines LLM r
 
 The assistant answers in both Spanish and English. It adapts its answer to whether the question is descriptive, predictive or mixed, and it refuses any question outside the F1 domain.
 
-> **Repository status.** This repository currently contains the entry point, configuration, training and evaluation scripts. The `src/`, `data/`, `models/` and `evaluation/` folders described below are not published yet, so the app cannot be run from this repository as it stands.
-
 ## Architecture
 
 The agent orchestrates four layers:
@@ -128,7 +126,7 @@ The benchmark (`evaluation/benchmark.json`) holds 20 reference questions in four
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-echo "GEMINI_API_KEY=your-key" > .env
+cp .env.example .env            # then set GEMINI_API_KEY
 
 python train_xgboost_tfm.py      # trains and saves models/race_pos_model.pkl
 streamlit run streamlit_app.py   # launches the assistant

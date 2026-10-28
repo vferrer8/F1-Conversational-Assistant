@@ -22,3 +22,6 @@ evaluation/results.json
 # ── Claude Code ──────────────────────────────────────────────────────────────
 .claude/
 data/.claude/
+
+# ── Material privado del TFM (guía universidad, prompts de redacción) ────────
+Contexto/
