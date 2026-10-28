@@ -22,7 +22,10 @@ class Settings(BaseSettings):
     )
 
     gemini_api_key: str = ""
-    gemini_model: str = "models/gemini-flash-latest"
+    # Lite: el más rápido y el que menos se satura en el free tier. Si falla por
+    # saturación (503/504) se prueban los de respaldo, en orden.
+    gemini_model: str = "models/gemini-flash-lite-latest"
+    gemini_fallback_models: list[str] = ["models/gemini-flash-latest"]
     llm_timeout_s: int = 40
 
     # Datos históricos Ergast (solo lectura).

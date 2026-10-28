@@ -126,6 +126,7 @@ class F1Agent:
     ) -> None:
         settings = get_settings()
         self.model = model or settings.gemini_model
+        self.fallback_models = [m for m in settings.gemini_fallback_models if m != self.model]
         self.client = genai.Client(
             api_key=api_key or settings.gemini_api_key,
             # Sin timeout, una llamada a un Gemini saturado puede quedarse colgada.
@@ -155,9 +156,9 @@ class F1Agent:
         """Procesa una consulta del usuario aplicando los tres guardarraíles."""
         t0 = time.perf_counter()
 
-        def done(**kwargs: Any) -> AgentResult:
+        def done(model: str | None = None, **kwargs: Any) -> AgentResult:
             return AgentResult(
-                model=self.model, latency_ms=int((time.perf_counter() - t0) * 1000), **kwargs
+                model=model or self.model, latency_ms=int((time.perf_counter() - t0) * 1000), **kwargs
             )
 
         # 1) Filtro de dominio antes de consumir tokens del LLM. Una pregunta de
@@ -171,26 +172,19 @@ class F1Agent:
 
         # 2) Inferencia del LLM con reintentos exponenciales en 5xx. Las tools se
         #    envuelven por petición para registrar qué se llamó y qué devolvió.
+        #    Si un modelo está saturado (503/504) se pasa al siguiente de la lista.
         calls: list[ToolCall] = []
-        chat = self.client.chats.create(
-            model=self.model,
-            config=types.GenerateContentConfig(
-                tools=[self._traced(t, calls) for t in self._tool_callables],
-                system_instruction=SYSTEM_PROMPT_TEMPLATE.format(
-                    today=date.today().strftime("%A, %B %d, %Y"),
-                ),
-            ),
-            history=[
-                types.Content(
-                    role="model" if turn.role == "assistant" else "user",
-                    parts=[types.Part(text=turn.content)],
-                )
-                for turn in history or []
-            ],
-        )
-        response_text, ok = self._invoke_with_retry(chat, query)
+        models = [self.model, *self.fallback_models]
+        for i, model in enumerate(models):
+            calls.clear()
+            is_last = i == len(models) - 1
+            response_text, ok, overloaded = self._invoke_with_retry(
+                self._new_chat(model, calls, history), query, max_attempts=2 if is_last else 1
+            )
+            if ok or not overloaded:
+                break
         if not ok:
-            return done(answer=response_text, status="llm_error", tool_calls=calls)
+            return done(answer=response_text, status="llm_error", tool_calls=calls, model=model)
 
         # 3) Verificación de consistencia post-generación contra los datos que
         #    devolvieron realmente las tools en esta petición.
@@ -207,6 +201,7 @@ class F1Agent:
             status="ok",
             tool_calls=calls,
             consistency_suspects=consistency.get("suspect", []),
+            model=model,
         )
 
     def handle_query(self, query: str) -> str:
@@ -233,18 +228,41 @@ class F1Agent:
 
         return wrapper
 
-    def _invoke_with_retry(self, chat: Any, query: str, max_attempts: int = 3) -> tuple[str, bool]:
+    def _new_chat(self, model: str, calls: list[ToolCall], history: list[ChatTurn] | None) -> Any:
+        return self.client.chats.create(
+            model=model,
+            config=types.GenerateContentConfig(
+                tools=[self._traced(t, calls) for t in self._tool_callables],
+                system_instruction=SYSTEM_PROMPT_TEMPLATE.format(
+                    today=date.today().strftime("%A, %B %d, %Y"),
+                ),
+            ),
+            history=[
+                types.Content(
+                    role="model" if turn.role == "assistant" else "user",
+                    parts=[types.Part(text=turn.content)],
+                )
+                for turn in history or []
+            ],
+        )
+
+    _OVERLOAD_MARKERS = ("503", "UNAVAILABLE", "504", "DEADLINE_EXCEEDED", "timed out", "Timeout")
+
+    def _invoke_with_retry(
+        self, chat: Any, query: str, max_attempts: int = 2
+    ) -> tuple[str, bool, bool]:
+        """Devuelve (texto, ok, saturado). `saturado` permite pasar al modelo de respaldo."""
         for attempt in range(max_attempts):
             try:
-                return chat.send_message(query).text or "", True
+                return chat.send_message(query).text or "", True, False
             except Exception as exc:  # noqa: BLE001 — propagamos texto controlado
-                err = str(exc)
+                err = f"{type(exc).__name__}: {exc}"
                 if "429" in err or "RESOURCE_EXHAUSTED" in err:
-                    return "Has agotado tu cuota de Gemini. Espera unos minutos o revisa Google AI Studio.", False
-                if "503" in err or "UNAVAILABLE" in err:
+                    return "Has agotado tu cuota de Gemini. Espera unos minutos o revisa Google AI Studio.", False, False
+                if any(m in err for m in self._OVERLOAD_MARKERS):
                     if attempt < max_attempts - 1:
                         time.sleep(3 * (attempt + 1))
                         continue
-                    return "Servidores de Gemini saturados. Inténtalo de nuevo en unos segundos.", False
-                return f"Error: {err}", False
-        return "Error: no se pudo completar la consulta.", False
+                    return "Servidores de Gemini saturados. Inténtalo de nuevo en unos segundos.", False, True
+                return f"Error: {exc}", False, False
+        return "Error: no se pudo completar la consulta.", False, False

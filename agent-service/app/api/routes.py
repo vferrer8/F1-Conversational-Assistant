@@ -9,6 +9,7 @@ from app.api import schemas
 from app.api.deps import get_agent, get_repository, get_tools
 from app.db.app_db import AgentRun, Prediction, get_session
 from app.db.f1_repository import F1Repository
+from app.ml import catalog
 from app.tools.f1_tools import F1Tools
 
 router = APIRouter(prefix="/v1")
@@ -62,6 +63,40 @@ def predict(
     session.add(Prediction(**body.model_dump(), predicted_position=outcome.position, features=outcome.features))
     session.commit()
     return schemas.PredictionResponse(predicted_position=outcome.position, features=outcome.features)
+
+
+@router.get("/predictions/options", response_model=schemas.PredictorOptions, tags=["ml"])
+def prediction_options(repo: Annotated[F1Repository, Depends(get_repository)]) -> schemas.PredictorOptions:
+    return schemas.PredictorOptions(
+        drivers=[schemas.PredictorDriver(number=n, name=name, constructor=team) for n, name, team in catalog.DRIVERS_2024],
+        constructors=catalog.CONSTRUCTORS_2024,
+        circuits=[schemas.PredictorCircuit(**c) for c in catalog.CIRCUITS],
+        seasons=repo.seasons(),
+    )
+
+
+@router.get("/stats", response_model=schemas.DatasetStats, tags=["data"])
+def stats(repo: Annotated[F1Repository, Depends(get_repository)]) -> dict:
+    return repo.stats()
+
+
+@router.get("/seasons", response_model=list[int], tags=["data"])
+def seasons(repo: Annotated[F1Repository, Depends(get_repository)]) -> list[int]:
+    return repo.seasons()
+
+
+@router.get("/seasons/{year}/races", response_model=list[schemas.Race], tags=["data"])
+def season_races(year: int, repo: Annotated[F1Repository, Depends(get_repository)]) -> list[dict]:
+    return repo.season_races(year)
+
+
+@router.get("/seasons/{year}/standings", response_model=list[schemas.StandingRow], tags=["data"])
+def season_standings(
+    year: int,
+    repo: Annotated[F1Repository, Depends(get_repository)],
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+) -> list[dict]:
+    return repo.season_standings(year, limit)
 
 
 @router.get("/drivers", response_model=list[schemas.Driver], tags=["data"])

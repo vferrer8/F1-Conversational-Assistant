@@ -27,9 +27,11 @@ The project is a small monorepo with three services:
 
 | Service | Stack | Responsibility |
 |---|---|---|
-| [`web/`](web) | React 19, TypeScript, Vite, Tailwind CSS 4 | Chat UI: conversation list, Markdown answers, agent trace (tools used, guardrail warnings, latency) |
-| [`chat-api/`](chat-api) | NestJS 12, Prisma 7 (SQLite) | Stores conversations and messages, sends the history to the agent |
+| [`web/`](web) | React 19, TypeScript, Vite, Tailwind CSS 4 | Project overview, assistant chat (with a saved demo conversation), data explorer (standings, calendar, race results) and predictor. Only the chat needs the LLM |
+| [`chat-api/`](chat-api) | NestJS 12, Prisma 7 (SQLite) | Stores conversations and messages, sends the history to the agent, and exposes F1 data and predictions to the web (`/api/f1/*`) |
 | [`agent-service/`](agent-service) | FastAPI, SQLAlchemy 2, Alembic, Pydantic 2 | The F1 agent: LLM, tools, guardrails, ML model; logs every run and prediction |
+
+The agent tries `gemini-flash-lite-latest` first and falls back to `gemini-flash-latest` when a model is overloaded (503/504). Both are configurable (`GEMINI_MODEL`, `GEMINI_FALLBACK_MODELS`).
 
 The agent is **stateless**: each request carries the conversation history, so a single instance serves every user without mixing conversations. Inside the agent service, the original layers are unchanged:
 

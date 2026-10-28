@@ -81,3 +81,33 @@ describe('Conversations API', () => {
     await request(server).get('/api/conversations/nope').expect(404);
   });
 });
+
+describe('F1 data proxy', () => {
+  it('reenvía la predicción al agente con el nombre de campo que espera', async () => {
+    const { AppModule } = await import('../src/app.module');
+    const proxied: { path: string; body?: unknown }[] = [];
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(AgentClient)
+      .useValue({
+        isHealthy: async () => true,
+        request: async (_m: string, path: string, opts?: { body?: unknown }) => {
+          proxied.push({ path, body: opts?.body });
+          return { predicted_position: 4 };
+        },
+      })
+      .compile();
+    const app = moduleRef.createNestApplication();
+    app.setGlobalPrefix('api');
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+    await app.init();
+
+    const body = { year: 2024, circuit: 'Autodromo Nazionale Monza', driver_number: 16, grid: 1, constructor_name: 'Ferrari' };
+    await request(app.getHttpServer()).post('/api/f1/predictions').send(body).expect(201);
+    expect(proxied[0]).toEqual({
+      path: '/v1/predictions',
+      body: { year: 2024, circuit: 'Autodromo Nazionale Monza', driver_number: 16, grid: 1, constructor: 'Ferrari' },
+    });
+    await request(app.getHttpServer()).post('/api/f1/predictions').send({ ...body, grid: 0 }).expect(400);
+    await app.close();
+  });
+});

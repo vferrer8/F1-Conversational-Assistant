@@ -37,6 +37,33 @@ def test_prediction_is_logged(client):
     assert row.driver_number == 16 and row.predicted_position == data["predicted_position"]
 
 
+def test_season_data(client):
+    stats = client.get("/v1/stats").json()
+    assert stats["seasons"] == 75 and stats["last_season"] == 2024
+
+    races = client.get("/v1/seasons/2019/races").json()
+    assert len(races) == 21 and races[0]["name"] == "Australian Grand Prix"
+
+    standings = client.get("/v1/seasons/2021/standings", params={"limit": 2}).json()
+    assert [s["driver"] for s in standings] == ["Max Verstappen", "Lewis Hamilton"]
+    assert standings[0]["constructor"] == "Red Bull"
+
+
+def test_prediction_options_resolve_against_the_database(client):
+    from app.ml.feature_resolver import FeatureResolver
+
+    options = client.get("/v1/predictions/options").json()
+    assert {"number": 4, "name": "Lando Norris", "constructor": "McLaren"} in options["drivers"]
+
+    # Cada equipo del catálogo debe existir en la BD (si no, la feature cae a la mediana).
+    resolver = FeatureResolver()
+    with resolver.engine.connect() as conn:
+        for team in options["constructors"]:
+            assert resolver._get_constructor_id(conn, team) is not None, team
+        # El #4 actual es Norris, no Max Chilton.
+        assert resolver._get_driver_id(conn, 4) == 846
+
+
 def test_prediction_validation(client):
     r = client.post("/v1/predictions", json={"year": 2024, "circuit": "Monza", "driver_number": 16, "grid": 0, "constructor": "Ferrari"})
     assert r.status_code == 422

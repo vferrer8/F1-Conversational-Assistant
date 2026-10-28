@@ -12,13 +12,27 @@ def test_out_of_domain_is_rejected_without_llm():
 
 def test_follow_up_inherits_f1_context(monkeypatch):
     agent = F1Agent(api_key="unused")
-    monkeypatch.setattr(agent, "_invoke_with_retry", lambda chat, q: ("Hamilton.", True))
+    monkeypatch.setattr(agent, "_invoke_with_retry", lambda chat, q, **kw: ("Hamilton.", True, False))
     history = [ChatTurn("user", "¿Quién ganó en Monza 2019?"), ChatTurn("assistant", "Leclerc.")]
 
     assert agent.run("¿Y quién quedó segundo?", history).status == "ok"
     assert agent.run("¿Y quién quedó segundo?").status == "rejected_domain"
     off_topic = [ChatTurn("user", "Recommend me a pasta recipe"), ChatTurn("assistant", "No.")]
     assert agent.run("¿Y otra?", off_topic).status == "rejected_domain"
+
+
+def test_falls_back_to_next_model_when_overloaded(monkeypatch):
+    agent = F1Agent(api_key="unused", model="primary")
+    agent.fallback_models = ["backup"]
+    used: list[str] = []
+    monkeypatch.setattr(agent, "_new_chat", lambda model, calls, history: used.append(model) or model)
+    replies = {"primary": ("Saturado", False, True), "backup": ("Leclerc ganó.", True, False)}
+    monkeypatch.setattr(agent, "_invoke_with_retry", lambda chat, q, **kw: replies[chat])
+
+    result = agent.run("¿Quién ganó en Monza 2019?")
+
+    assert used == ["primary", "backup"]
+    assert result.status == "ok" and result.model == "backup"
 
 
 def test_traced_tool_records_args_and_result():

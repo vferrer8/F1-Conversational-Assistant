@@ -64,6 +64,49 @@ class RaceResult(BaseModel):
     points: float | None
 
 
+class DatasetStats(BaseModel):
+    seasons: int
+    first_season: int
+    last_season: int
+    races: int
+    drivers: int
+    constructors: int
+    results: int
+    lap_times: int
+
+
+class Race(BaseModel):
+    round: int
+    name: str
+    date: str | None
+
+
+class StandingRow(BaseModel):
+    position: int
+    driver: str
+    points: float
+    wins: int
+    constructor: str | None
+
+
+class PredictorDriver(BaseModel):
+    number: int
+    name: str
+    constructor: str
+
+
+class PredictorCircuit(BaseModel):
+    circuit: str
+    grand_prix: str
+
+
+class PredictorOptions(BaseModel):
+    drivers: list[PredictorDriver]
+    constructors: list[str]
+    circuits: list[PredictorCircuit]
+    seasons: list[int]
+
+
 class Health(BaseModel):
     status: Literal["ok"]
     model_loaded: bool

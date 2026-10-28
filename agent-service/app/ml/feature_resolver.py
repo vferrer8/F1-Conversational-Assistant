@@ -262,7 +262,13 @@ class FeatureResolver:
     def _get_driver_id(self, conn: Connection, driver_number: int) -> Optional[int]:
         # Algunos pilotos tienen un número distinto en Ergast (ej. Verstappen: 1 → 33)
         lookup = DRIVER_NUMBER_ALIAS.get(driver_number, driver_number)
-        row = _one(conn, "SELECT driverId FROM drivers_raw WHERE number=:num LIMIT 1", num=lookup)
+        # Los números se reutilizan (el #4 fue de Chilton antes que de Norris):
+        # nos quedamos con el piloto más reciente, que tiene el driverId más alto.
+        row = _one(
+            conn,
+            "SELECT driverId FROM drivers_raw WHERE number=:num ORDER BY driverId DESC LIMIT 1",
+            num=lookup,
+        )
         return int(row["driverId"]) if row else None
 
     def _get_constructor_id(self, conn: Connection, constructor: str) -> Optional[int]:

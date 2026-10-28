@@ -1,112 +1,104 @@
-import { useCallback, useEffect, useState } from 'react';
-import { api, type ConversationSummary, type Message } from './api';
-import { ChatInput } from './components/ChatInput';
-import { MessageList } from './components/MessageList';
-import { Sidebar } from './components/Sidebar';
+import { useEffect, useState } from 'react';
+import { api } from './api';
+import { Logo } from './components/ui';
+import { Assistant } from './pages/Assistant';
+import { Explorer } from './pages/Explorer';
+import { Home } from './pages/Home';
+import { Predictor } from './pages/Predictor';
+
+const PAGES = [
+  { id: 'inicio', label: 'Inicio' },
+  { id: 'asistente', label: 'Asistente' },
+  { id: 'datos', label: 'Datos' },
+  { id: 'predictor', label: 'Predictor' },
+] as const;
+export type PageId = (typeof PAGES)[number]['id'];
+
+function readHash(): PageId {
+  const id = window.location.hash.replace('#/', '');
+  return PAGES.some((p) => p.id === id) ? (id as PageId) : 'inicio';
+}
 
 export default function App() {
-  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [page, setPage] = useState<PageId>(readHash);
+  const [online, setOnline] = useState<boolean | null>(null);
 
-  const refreshList = useCallback(async () => {
-    setConversations(await api.listConversations());
+  useEffect(() => {
+    const onHash = () => {
+      setPage(readHash());
+      window.scrollTo({ top: 0 });
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
   useEffect(() => {
-    refreshList().catch((e: Error) => setError(e.message));
-  }, [refreshList]);
-
-  useEffect(() => {
-    if (!activeId) {
-      setMessages([]);
-      return;
-    }
     api
-      .getConversation(activeId)
-      .then((c) => setMessages(c.messages))
-      .catch((e: Error) => setError(e.message));
-  }, [activeId]);
+      .health()
+      .then((h) => setOnline(h.agentService === 'ok'))
+      .catch(() => setOnline(false));
+  }, []);
 
-  async function send(content: string) {
-    setError(null);
-    setSending(true);
-    // Mensaje optimista mientras responde el agente.
-    const pending: Message = {
-      id: `pending-${Date.now()}`,
-      role: 'user',
-      content,
-      metadata: null,
-      createdAt: new Date().toISOString(),
-    };
-    setMessages((m) => [...m, pending]);
-    try {
-      const id = activeId ?? (await api.createConversation()).id;
-      const { userMessage, assistantMessage } = await api.sendMessage(id, content);
-      setMessages((m) => [...m.filter((x) => x.id !== pending.id), userMessage, assistantMessage]);
-      if (!activeId) setActiveId(id);
-      await refreshList();
-    } catch (e) {
-      setMessages((m) => m.filter((x) => x.id !== pending.id));
-      setError((e as Error).message);
-    } finally {
-      setSending(false);
-    }
-  }
-
-  async function remove(id: string) {
-    await api.deleteConversation(id);
-    if (id === activeId) setActiveId(null);
-    await refreshList();
-  }
+  const go = (id: PageId) => {
+    window.location.hash = `/${id}`;
+  };
 
   return (
-    <div className="flex h-full">
-      <Sidebar
-        conversations={conversations}
-        activeId={activeId}
-        open={sidebarOpen}
-        onSelect={(id) => {
-          setActiveId(id);
-          setSidebarOpen(false);
-        }}
-        onNew={() => {
-          setActiveId(null);
-          setSidebarOpen(false);
-        }}
-        onDelete={(id) => remove(id).catch((e: Error) => setError(e.message))}
-        onClose={() => setSidebarOpen(false)}
-      />
+    <div className="flex min-h-full flex-col">
+      <header className="sticky top-0 z-30 border-b border-line bg-surface/80 backdrop-blur">
+        <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:gap-6">
+          <a href="#/inicio" aria-label="Inicio">
+            <Logo />
+          </a>
+          <nav className="flex gap-0.5 overflow-x-auto text-sm sm:gap-1">
+            {PAGES.map((p) => (
+              <a
+                key={p.id}
+                href={`#/${p.id}`}
+                className={`relative rounded-md px-2 py-1.5 whitespace-nowrap transition-colors sm:px-3 ${
+                  page === p.id ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                {p.label}
+                {page === p.id && <span className="absolute inset-x-2 -bottom-[13px] h-0.5 bg-f1-red sm:inset-x-3" />}
+              </a>
+            ))}
+          </nav>
+          <StatusPill online={online} />
+        </div>
+      </header>
 
-      <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-3 border-b border-zinc-800 px-4 py-3">
-          <button
-            className="rounded p-1 text-zinc-400 hover:bg-zinc-800 md:hidden"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Abrir conversaciones"
-          >
-            ☰
-          </button>
-          <h1 className="text-lg font-semibold tracking-tight">
-            <span className="text-f1-red">F1</span>-GPT
-          </h1>
-          <span className="hidden text-sm text-zinc-500 sm:inline">
-            Histórico 1950–2024 · Telemetría OpenF1 · Predicción XGBoost
-          </span>
-        </header>
-
-        <MessageList messages={messages} sending={sending} onSuggestion={send} />
-
-        {error && (
-          <div className="mx-4 mb-2 rounded-md border border-red-900 bg-red-950/60 px-3 py-2 text-sm text-red-200">
-            {error}
-          </div>
-        )}
-        <ChatInput disabled={sending} onSend={send} />
+      <main className="flex flex-1 flex-col">
+        {page === 'inicio' && <Home onNavigate={go} />}
+        {page === 'asistente' && <Assistant />}
+        {page === 'datos' && <Explorer />}
+        {page === 'predictor' && <Predictor />}
       </main>
+
+      {page !== 'asistente' && (
+        <footer className="border-t border-line">
+          <div className="checkered h-1.5 opacity-[0.07]" />
+          <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-6 text-sm text-zinc-500 sm:flex-row sm:justify-between">
+            <p>Trabajo de Fin de Máster · Máster Universitario en Inteligencia Artificial · UTAMED</p>
+            <p>Víctor Ferrer Teixidor · Datos: Ergast (1950–2024) y OpenF1</p>
+          </div>
+        </footer>
+      )}
     </div>
+  );
+}
+
+function StatusPill({ online }: { online: boolean | null }) {
+  if (online === null) return <span className="ml-auto" />;
+  return (
+    <span
+      className={`ml-auto hidden items-center gap-2 rounded-full border px-3 py-1 text-xs sm:inline-flex ${
+        online ? 'border-emerald-800/60 text-emerald-300' : 'border-amber-800/60 text-amber-300'
+      }`}
+      title={online ? 'Chat API y agent-service responden' : 'El agent-service no responde'}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${online ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+      {online ? 'Servicios operativos' : 'Agente no disponible'}
+    </span>
   );
 }

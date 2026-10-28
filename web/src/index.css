@@ -3,7 +3,12 @@
 @theme {
   --color-f1-red: #e10600;
   --color-f1-red-dark: #b10500;
+  --color-surface: #0b0b0d;
+  --color-panel: #141417;
+  --color-panel-2: #1b1b1f;
+  --color-line: #2a2a30;
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Titillium Web', 'Inter', ui-sans-serif, sans-serif;
 }
 
 html,
@@ -13,32 +18,59 @@ body,
 }
 
 body {
-  @apply bg-zinc-950 text-zinc-100 antialiased;
+  @apply bg-surface text-zinc-100 antialiased;
+}
+
+/* Fondo del hero: líneas de velocidad + rejilla tenue */
+.speed-lines {
+  background-image:
+    linear-gradient(115deg, transparent 0 62%, rgb(225 6 0 / 0.18) 62% 63%, transparent 63% 66%, rgb(225 6 0 / 0.1) 66% 66.6%, transparent 66.6%),
+    radial-gradient(ellipse at 80% 0%, rgb(225 6 0 / 0.16), transparent 55%),
+    linear-gradient(rgb(255 255 255 / 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.025) 1px, transparent 1px);
+  background-size: auto, auto, 48px 48px, 48px 48px;
+}
+
+/* Banda a cuadros */
+.checkered {
+  background-image: conic-gradient(#fff 25%, transparent 0 50%, #fff 0 75%, transparent 0);
+  background-size: 12px 12px;
 }
 
 /* Markdown de las respuestas del agente */
 .prose-chat {
-  @apply space-y-3 leading-relaxed;
+  @apply space-y-3 leading-relaxed text-zinc-200;
+}
+.prose-chat strong {
+  @apply text-white;
 }
 .prose-chat table {
-  @apply w-full border-collapse text-sm;
+  @apply w-full border-collapse overflow-hidden rounded-lg text-sm;
 }
 .prose-chat th,
 .prose-chat td {
-  @apply border border-zinc-700 px-2 py-1 text-left;
+  @apply border border-line px-3 py-1.5 text-left;
 }
 .prose-chat th {
-  @apply bg-zinc-800;
+  @apply bg-panel-2 font-medium text-zinc-300;
 }
 .prose-chat ul {
-  @apply list-disc pl-5;
+  @apply list-disc space-y-1 pl-5;
 }
 .prose-chat ol {
-  @apply list-decimal pl-5;
+  @apply list-decimal space-y-1 pl-5;
 }
 .prose-chat code {
-  @apply rounded bg-zinc-800 px-1 py-0.5 text-sm;
+  @apply rounded bg-panel-2 px-1 py-0.5 text-sm;
 }
 .prose-chat a {
   @apply text-f1-red underline;
+}
+
+/* Selects con flecha propia sobre fondo oscuro */
+.select {
+  @apply w-full appearance-none rounded-lg border border-line bg-panel-2 px-3 py-2 pr-9 text-sm text-zinc-100 outline-none focus:border-zinc-500;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5' stroke='%23a1a1aa' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
 }
