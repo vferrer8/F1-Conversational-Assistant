@@ -1,5 +1,6 @@
 # ── Secretos ────────────────────────────────────────────────────────────────
 .env
+.env.local
 
 # ── Python ───────────────────────────────────────────────────────────────────
 __pycache__/
@@ -7,6 +8,7 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
+.pytest_cache/
 
 # ── Entornos virtuales ────────────────────────────────────────────────────────
 .venv/
@@ -16,12 +18,26 @@ env/
 # ── Jupyter ───────────────────────────────────────────────────────────────────
 .ipynb_checkpoints/
 
-# ── Resultados de evaluación (generados en ejecución) ────────────────────────
-evaluation/results.json
+# ── Node / builds ─────────────────────────────────────────────────────────────
+node_modules/
+dist/
+*.tsbuildinfo
+chat-api/src/generated/
 
-# ── Claude Code ──────────────────────────────────────────────────────────────
+# ── Bases de datos generadas en ejecución ─────────────────────────────────────
+# (el volcado de Ergast agent-service/data/f1_assistant.db sí se versiona)
+agent-service/data/agent_service.db
+agent-service/tests/.test_agent_service.db
+chat-api/data/*.db
+chat-api/data/*.db-journal
+
+# ── Resultados de evaluación (generados en ejecución) ────────────────────────
+agent-service/evaluation/results.json
+
+# ── Editor / Claude Code ─────────────────────────────────────────────────────
+.vscode/
 .claude/
-data/.claude/
+**/data/.claude/
 
 # ── Material privado del TFM (guía universidad, prompts de redacción) ────────
 Contexto/

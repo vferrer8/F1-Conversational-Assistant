@@ -1,0 +1,102 @@
+# Despliegue en Google Cloud (Cloud Build → Artifact Registry → Cloud Run).
+#
+# NO se ejecuta automáticamente: requiere un proyecto GCP con facturación.
+# Preparación única (ver README, sección "Despliegue en Google Cloud"):
+#   gcloud artifacts repositories create f1gpt --repository-format=docker --location=$REGION
+#   printf '%s' "$GEMINI_API_KEY" | gcloud secrets create gemini-api-key --data-file=-
+#   gcloud storage buckets create gs://$BUCKET && gcloud storage cp agent-service/models/race_pos_model.pkl gs://$BUCKET/models/
+# Lanzar:
+#   gcloud builds submit --config cloudbuild.yaml --substitutions=_ARTIFACTS_BUCKET=$BUCKET
+
+substitutions:
+  _REGION: europe-southwest1
+  _REPO: f1gpt
+  # Si se define, el modelo se descarga de Cloud Storage en vez de usar el del repo.
+  _ARTIFACTS_BUCKET: ""
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  - id: fetch-model
+    name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        if [ -n "${_ARTIFACTS_BUCKET}" ]; then
+          gcloud storage cp gs://${_ARTIFACTS_BUCKET}/models/race_pos_model.pkl agent-service/models/
+        fi
+
+  - id: build-agent
+    name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/agent:$SHORT_SHA", "agent-service"]
+    waitFor: ["fetch-model"]
+
+  - id: build-chat-api
+    name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/chat-api:$SHORT_SHA", "chat-api"]
+    waitFor: ["-"]
+
+  - id: build-web
+    name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:$SHORT_SHA", "web"]
+    waitFor: ["-"]
+
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args: ["push", "--all-tags", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/agent"]
+    waitFor: ["build-agent"]
+
+  - id: push-chat-api
+    name: gcr.io/cloud-builders/docker
+    args: ["push", "--all-tags", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/chat-api"]
+    waitFor: ["build-chat-api"]
+
+  - id: push-web
+    name: gcr.io/cloud-builders/docker
+    args: ["push", "--all-tags", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web"]
+    waitFor: ["build-web"]
+
+  # El agente es interno: solo lo llama la Chat API. La clave de Gemini llega desde Secret Manager.
+  - id: deploy-agent
+    name: gcr.io/cloud-builders/gcloud
+    args:
+      - run
+      - deploy
+      - f1gpt-agent
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/agent:$SHORT_SHA
+      - --region=${_REGION}
+      - --set-secrets=GEMINI_API_KEY=gemini-api-key:latest
+      - --memory=1Gi
+      - --no-allow-unauthenticated
+    waitFor: ["push"]
+
+  - id: deploy-chat-api
+    name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        AGENT_URL=$$(gcloud run services describe f1gpt-agent --region=${_REGION} --format='value(status.url)')
+        # La cuenta de servicio de la Chat API necesita roles/run.invoker sobre f1gpt-agent.
+        gcloud run deploy f1gpt-chat-api \
+          --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/chat-api:$SHORT_SHA \
+          --region=${_REGION} \
+          --set-env-vars=AGENT_SERVICE_URL=$${AGENT_URL},AGENT_USE_ID_TOKEN=true \
+          --allow-unauthenticated
+    waitFor: ["push-chat-api", "deploy-agent"]
+
+  - id: deploy-web
+    name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        CHAT_URL=$$(gcloud run services describe f1gpt-chat-api --region=${_REGION} --format='value(status.url)')
+        gcloud run deploy f1gpt-web \
+          --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:$SHORT_SHA \
+          --region=${_REGION} \
+          --set-env-vars=CHAT_API_URL=$${CHAT_URL} \
+          --allow-unauthenticated
+    waitFor: ["push-web", "deploy-chat-api"]

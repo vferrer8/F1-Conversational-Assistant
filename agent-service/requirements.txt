@@ -1,0 +1,15 @@
+# Servicio
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+pydantic==2.14.1
+pydantic-settings==2.16.1
+SQLAlchemy==2.1.6
+alembic==1.20.1
+google-genai==2.33.0
+requests==2.34.2
+
+# ML
+xgboost==3.4.1
+scikit-learn==1.9.1
+pandas==3.1.0
+numpy==2.5.4

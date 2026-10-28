@@ -1,0 +1,44 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-f1-red: #e10600;
+  --color-f1-red-dark: #b10500;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-zinc-950 text-zinc-100 antialiased;
+}
+
+/* Markdown de las respuestas del agente */
+.prose-chat {
+  @apply space-y-3 leading-relaxed;
+}
+.prose-chat table {
+  @apply w-full border-collapse text-sm;
+}
+.prose-chat th,
+.prose-chat td {
+  @apply border border-zinc-700 px-2 py-1 text-left;
+}
+.prose-chat th {
+  @apply bg-zinc-800;
+}
+.prose-chat ul {
+  @apply list-disc pl-5;
+}
+.prose-chat ol {
+  @apply list-decimal pl-5;
+}
+.prose-chat code {
+  @apply rounded bg-zinc-800 px-1 py-0.5 text-sm;
+}
+.prose-chat a {
+  @apply text-f1-red underline;
+}

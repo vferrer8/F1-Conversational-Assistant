@@ -1,0 +1,39 @@
+# Stack completo en local:  docker compose up --build  →  http://localhost:8080
+# Requiere un .env en la raíz con GEMINI_API_KEY (ver .env.example).
+
+services:
+  agent:
+    build: ./agent-service
+    env_file: .env
+    environment:
+      APP_DATABASE_URL: sqlite:////srv/state/agent_service.db
+    volumes:
+      - agent-state:/srv/state
+    ports:
+      - "8000:8080"
+
+  chat-api:
+    build: ./chat-api
+    environment:
+      DATABASE_URL: file:/srv/data/chat.db
+      AGENT_SERVICE_URL: http://agent:8080
+      CORS_ORIGINS: http://localhost:8080
+    volumes:
+      - chat-data:/srv/data
+    depends_on:
+      - agent
+    ports:
+      - "3000:8080"
+
+  web:
+    build: ./web
+    environment:
+      CHAT_API_URL: http://chat-api:8080
+    depends_on:
+      - chat-api
+    ports:
+      - "8080:8080"
+
+volumes:
+  agent-state:
+  chat-data:
