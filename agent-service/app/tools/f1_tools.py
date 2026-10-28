@@ -53,6 +53,18 @@ class F1Tools:
         """Resultados oficiales de un GP (orden de llegada, puntos, equipo)."""
         return self.db.query_race_results(year, circuit)
 
+    def get_season_standings(
+        self,
+        year: int,
+        limit: int = 10,
+    ) -> List[Dict[str, Any]]:
+        """Clasificación final del Mundial de pilotos de una temporada.
+
+        La primera fila es el campeón del mundo. Incluye puntos, victorias y
+        equipo de cada piloto.
+        """
+        return self.db.season_standings(year, max(1, min(limit, 30)))
+
     # -- Telemetría reciente -----------------------------------------------------
 
     def get_telemetry(

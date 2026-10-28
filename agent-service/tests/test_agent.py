@@ -47,6 +47,36 @@ def test_traced_tool_records_args_and_result():
     assert calls[0].result == rows and len(rows) == 20
 
 
+def test_season_standings_tool_is_registered_and_returns_champion():
+    agent = F1Agent(api_key="unused")
+    assert "get_season_standings" in [t.__name__ for t in agent._tool_callables]
+
+    calls: list[ToolCall] = []
+    rows = agent._traced(agent.f1_tools.get_season_standings, calls)(year=2021, limit=3)
+
+    assert [r["driver"] for r in rows] == ["Max Verstappen", "Lewis Hamilton", "Valtteri Bottas"]
+    assert rows[0]["points"] == 395.5
+    assert calls[0].error is None
+
+
+def test_consistency_accepts_tool_args_and_query_numbers(monkeypatch):
+    agent = F1Agent(api_key="unused")
+
+    def fake_invoke(chat, query, **kw):
+        # Simula que el LLM llama a la tool y redacta con el año del argumento.
+        tool = agent._traced(agent.f1_tools.get_season_standings, calls_ref[0])
+        tool(year=2021, limit=1)
+        return "En 2021 ganó Verstappen con 395.5 puntos, no con 400.", True, False
+
+    calls_ref: list = []
+    monkeypatch.setattr(agent, "_new_chat", lambda model, calls, history: calls_ref.append(calls) or "chat")
+    monkeypatch.setattr(agent, "_invoke_with_retry", fake_invoke)
+
+    result = agent.run("¿Quién fue campeón del mundo en 2021?")
+    # 2021 viene del argumento, 395.5 de la tabla; 400 es inventado.
+    assert result.consistency_suspects == [400.0]
+
+
 def test_traced_tool_captures_errors():
     agent = F1Agent(api_key="unused")
     calls: list[ToolCall] = []

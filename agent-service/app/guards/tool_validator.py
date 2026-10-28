@@ -18,6 +18,7 @@ class ToolValidator:
         {
             "get_driver_standings",
             "get_race_results",
+            "get_season_standings",
             "get_telemetry",
             "predict_position",
         }

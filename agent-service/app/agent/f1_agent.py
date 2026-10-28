@@ -31,10 +31,14 @@ SYSTEM_PROMPT_TEMPLATE = """You are F1-GPT, a specialized Formula 1 Research Ass
 
 - get_driver_standings  → driver nationality, permanent number, career info
 - get_race_results      → past race outcomes, winner of a GP, finishing order, points
-- get_telemetry         → lap times, sector times, telemetry (2023+ ONLY, requires session_key)
+- get_season_standings  → world champion of a season, final drivers' championship table,
+                          points and wins over a whole season (1950–2024)
+- get_telemetry        → lap times, sector times, telemetry (2023+ ONLY, requires session_key)
 - predict_position      → any question about future or hypothetical finishing position
                           (internally uses 10 pre-race features: grid, championship standings,
                            driver experience, recent form, circuit altitude, season progress)
+
+Never answer championship, points or results questions from memory: always call the matching tool, even if you think you know the answer.
 
 When a query combines historical context and a prediction (e.g. "Verstappen won last year at Monza, where will he finish this year?"), call get_race_results first, then predict_position.
 
@@ -140,6 +144,7 @@ class F1Agent:
         self._tool_callables: list[Callable[..., Any]] = [
             self.f1_tools.get_driver_standings,
             self.f1_tools.get_race_results,
+            self.f1_tools.get_season_standings,
             self.f1_tools.get_telemetry,
             self.f1_tools.predict_position,
         ]
@@ -187,9 +192,12 @@ class F1Agent:
             return done(answer=response_text, status="llm_error", tool_calls=calls, model=model)
 
         # 3) Verificación de consistencia post-generación contra los datos que
-        #    devolvieron realmente las tools en esta petición.
+        #    devolvieron realmente las tools en esta petición. Los argumentos de
+        #    las tools y la propia pregunta también cuentan como fuente (p. ej. el
+        #    año consultado no aparece en cada fila de la clasificación).
+        grounded = [c.result for c in calls if c.error is None]
         consistency = self.consistency_guard.validate_consistency(
-            response_text, tool_data=[c.result for c in calls if c.error is None]
+            response_text, tool_data=grounded and [*grounded, *(c.args for c in calls), query]
         )
         if not consistency["valid"]:
             response_text = (

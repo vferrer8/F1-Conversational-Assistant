@@ -24,6 +24,7 @@ const PIPELINE = [
 
 const TOOLS = [
   { name: 'get_race_results', title: 'Resultados de carrera', source: 'Ergast · SQLite', text: 'Orden de llegada, equipos y puntos de cualquier GP desde 1950.' },
+  { name: 'get_season_standings', title: 'Clasificación del Mundial', source: 'Ergast · SQLite', text: 'Campeón y tabla final de pilotos de cada temporada, con puntos y victorias.' },
   { name: 'get_driver_standings', title: 'Ficha de piloto', source: 'Ergast · SQLite', text: 'Nacionalidad, número y datos básicos de cada piloto.' },
   { name: 'get_telemetry', title: 'Telemetría', source: 'OpenF1 API', text: 'Tiempos por vuelta y sectores de sesiones desde 2023.' },
   { name: 'predict_position', title: 'Predicción XGBoost', source: 'Modelo propio', text: 'Posición final estimada a partir de 10 variables pre-carrera.' },
@@ -122,11 +123,11 @@ export function Home({ onNavigate }: { onNavigate: (id: PageId) => void }) {
       {/* Herramientas */}
       <section className="border-y border-line bg-panel/40">
         <div className="mx-auto max-w-6xl space-y-10 px-4 py-20">
-          <SectionTitle eyebrow="Herramientas del agente" title="Cuatro fuentes de verdad">
+          <SectionTitle eyebrow="Herramientas del agente" title="Cinco fuentes de verdad">
             El modelo de lenguaje elige entre estas funciones mediante tool calling. Sus resultados son lo único que puede
             citar.
           </SectionTitle>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {TOOLS.map((t) => (
               <Card key={t.name} className="flex gap-4 p-5">
                 <span className="mt-1 h-10 w-1 shrink-0 rounded-full bg-f1-red" />

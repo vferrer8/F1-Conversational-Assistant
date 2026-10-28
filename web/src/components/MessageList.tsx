@@ -8,12 +8,13 @@ const SUGGESTIONS = [
   { title: 'Histórico', text: '¿Quién ganó el GP de Monza en 2019?' },
   { title: 'In English', text: 'Who won the 2021 Abu Dhabi Grand Prix?' },
   { title: 'Predicción', text: '¿En qué posición acabaría Leclerc en Monza 2024 saliendo desde la pole con Ferrari?' },
-  { title: 'Pilotos', text: '¿De qué nacionalidad es Fernando Alonso?' },
+  { title: 'Mundial', text: '¿Quién fue campeón del mundo en 2021 y con cuántos puntos?' },
 ];
 
 const TOOL_LABELS: Record<string, string> = {
   get_driver_standings: 'Ficha de piloto',
   get_race_results: 'Resultados',
+  get_season_standings: 'Clasificación del Mundial',
   get_telemetry: 'Telemetría',
   predict_position: 'Predicción XGBoost',
 };

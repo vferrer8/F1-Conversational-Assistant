@@ -37,12 +37,13 @@ The agent is **stateless**: each request carries the conversation history, so a 
 
 **Semantic layer.** The system prompt embeds the entity mappings (drivers, circuits, constructors) and the tool-selection rules. The LLM never writes SQL or calls the API directly. It always delegates to the tools.
 
-**Tool calling.** The Gemini SDK manages the full invocation cycle. Each tool is wrapped per request so the agent records which tools were called, with which arguments and what they returned. Four tools are available:
+**Tool calling.** The Gemini SDK manages the full invocation cycle. Each tool is wrapped per request so the agent records which tools were called, with which arguments and what they returned. Five tools are available:
 
 | Tool | Data source | Purpose |
 |---|---|---|
 | `get_driver_standings` | SQLite (Ergast 1950–2024) | Driver profile and basic data |
 | `get_race_results` | SQLite (Ergast 1950–2024) | Official results of a Grand Prix |
+| `get_season_standings` | SQLite (Ergast 1950–2024) | Final drivers' championship of a season (champion, points, wins) |
 | `get_telemetry` | OpenF1 API (2023+) | Lap times and recent telemetry |
 | `predict_position` | XGBoost model | Estimated final race position |
 
